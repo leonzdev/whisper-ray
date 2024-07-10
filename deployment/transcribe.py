@@ -1,4 +1,3 @@
-import ray
 from ray import serve
 from typing import Dict, Any, Optional, Union, List, Iterable
 from pydantic import BaseModel
@@ -8,7 +7,7 @@ import asyncio
 import io
 
 # Define input schema compatible with OpenAI's API
-class TranscriptionInput(BaseModel):
+class TranscribeInput(BaseModel):
     file: bytes
     model: str = "base"
     prompt: Optional[str] = None
@@ -18,13 +17,12 @@ class TranscriptionInput(BaseModel):
 
 # Initialize Faster-Whisper model
 
-@serve.deployment
-class TranscriptionService:
-    def __init__(self):
-        self.model = WhisperModel("base", device="cpu")
-
+@serve.deployment()
+class TranscribeService:
+    def __init__(self, model_name: str, device: str):
+        self.model = WhisperModel(model_name, device)
     
-    async def transcribe(self, input: TranscriptionInput) -> Union[Dict[str, Any], str]:
+    async def transcribe(self, input: TranscribeInput) -> Union[Dict[str, Any], str]:
         # Process the audio file from memory
         audio_data = io.BytesIO(input.file)
 
