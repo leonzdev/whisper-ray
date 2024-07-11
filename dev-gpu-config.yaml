@@ -30,9 +30,10 @@ applications:
 
   route_prefix: /
 
-  import_path: aio_main:whisper_ray
+  import_path: serve_app.main:whisper_ray
 
   runtime_env:
+    working_dir: https://github.com/leonzdev/whisper-ray/archive/refs/heads/main.zip
     env_vars:
       MODEL_NAME: base
       MODEL_DEVICE: cuda
@@ -47,7 +48,7 @@ applications:
 
   - name: TranscribeService
     ray_actor_options:
-      num_gpus: 0.5
+      num_gpus: 1
       num_cpus: 2
   - name: APIIngress
     ray_actor_options:
