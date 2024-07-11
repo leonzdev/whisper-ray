@@ -1,13 +1,10 @@
-import os
+from ray import serve
+from typing import Dict, Any, Optional, Union, List, Iterable
+from pydantic import BaseModel
+from faster_whisper import WhisperModel
+from faster_whisper.transcribe import TranscriptionOptions, Segment
 import asyncio
 import io
-from pydantic import BaseModel
-from typing import Dict, Any, Optional, Union, List, Iterable
-
-from fastapi import FastAPI, UploadFile, File, Form
-from ray import serve
-from ray.serve.handle import DeploymentHandle
-app = FastAPI()
 
 # Define input schema compatible with OpenAI's API
 class TranscribeInput(BaseModel):
@@ -18,36 +15,11 @@ class TranscribeInput(BaseModel):
     language: Optional[str] = None
     format: str = "json"
 
-@serve.deployment
-@serve.ingress(app)
-class APIIngress:
-    def __init__(self, transcribe_service: DeploymentHandle) -> None:
-        self.transcribe_service = transcribe_service
-
-    @app.post("/transcribe")
-    async def transcribe(self, file: UploadFile = File(...), model: str = Form(...), prompt: str = Form(None), temperature: float = Form(0.0), language: str = Form(None), format: str = Form("json")):
-        # Read the file content
-        file_content = await file.read()
-        input_data = TranscribeInput(
-            file=file_content,
-            model=model,
-            prompt=prompt,
-            temperature=temperature,
-            language=language,
-            format=format
-        )
-        # Call the transcription service
-        result = await self.transcribe_service.transcribe.remote(input_data)
-        return result
-
 # Initialize Faster-Whisper model
 
 @serve.deployment()
 class TranscribeService:
-
     def __init__(self, model_name: str, device: str):
-        from faster_whisper import WhisperModel
-        from faster_whisper.transcribe import TranscriptionOptions, Segment
         self.model = WhisperModel(model_name, device)
     
     async def transcribe(self, input: TranscribeInput) -> Union[Dict[str, Any], str]:
@@ -93,5 +65,3 @@ class TranscribeService:
             }
         
         return result
-
-whisper_ray = APIIngress.bind(TranscribeService.bind(os.getenv("MODEL_NAME"), os.getenv("MODEL_DEVICE")))
