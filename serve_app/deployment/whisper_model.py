@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from faster_whisper import WhisperModel
 from faster_whisper.transcribe import Segment, TranscriptionInfo
 from ..common.constants import WORD, SEGMENT, DEVICE_CPU, DEVICE_GPU, FORMAT_JSON, FORMAT_VERBOSE
-from ..common.types import TranscribeInput
+from ..common.types import TranscribeInput, TranslateInput
 import asyncio
 import io
 
@@ -41,7 +41,7 @@ class WhisperModelService:
         for s in segments_generator:
             await asyncio.sleep(0)
             segments.append(s)
-        return self.format_transcrbe_result(input, segments, info)
+        return self.format_transcribe_result(input, segments, info)
 
     def validate_transcribe_input(self, input: TranscribeInput) -> None:
         if input.response_format not in VALID_RESPONSE_FORMAT:
@@ -49,14 +49,31 @@ class WhisperModelService:
         if input.model != self.model_name:
             raise ValueError("Invalid model {}. Need to be {}".format(input.model, self.model_name))
 
+    async def translate(self, input: TranslateInput) -> Dict[str, Any]:
+        # TODO: use the same input validation as transcribe for now
+        self.validate_transcribe_input(input)
+        audio_data = io.BytesIO(input.file)
+        options = {
+            "task": "translate",
+            "temperature": [input.temperature],
+            "initial_prompt": input.prompt,
+        }
+        segments_generator, info = self.model.transcribe(audio_data, **options)
+        segments: List[Segment] = []
+        for s in segments_generator:
+            await asyncio.sleep(0)
+            segments.append(s)
+        return self.format_translate_result(input, segments, info)
+
     @staticmethod
-    def format_transcrbe_result(input: TranscribeInput, segments: List[Segment], info: TranscriptionInfo) -> Any :
+    def format_transcribe_result(input: TranscribeInput, segments: List[Segment], info: TranscriptionInfo) -> Any :
         options = info.transcription_options
         if input.response_format == FORMAT_VERBOSE:
             result = {
-                "text": " ".join([segment.text for segment in segments]),
+                "task": "transcribe",
                 "language": info.language,
                 "duration": info.duration,
+                "text": " ".join([segment.text for segment in segments]),
             }
             if input.timestamp_granularities is not None and WORD in input.timestamp_granularities:
                 result["words"] = []
@@ -72,6 +89,38 @@ class WhisperModelService:
                         })
                 if input.timestamp_granularities is not None and SEGMENT in input.timestamp_granularities:
                     result['segments'].append({
+                    "id": segment.id,
+                    "seek": segment.seek,
+                    "start": segment.start,
+                    "end": segment.end,
+                    "text": segment.text,
+                    "tokens": segment.tokens,
+                    "temperature": segment.temperature,
+                    "avg_logprob": segment.avg_logprob,
+                    "compression_ratio": segment.compression_ratio,
+                    "no_speech_prob": segment.no_speech_prob,
+                })
+            return result
+        # TODO: add support for srt and vtt
+        elif input.response_format == FORMAT_JSON:
+            return {"text": " ".join([segment.text for segment in segments])}
+        else:
+            raise ValueError("Invalid response format {}".format(input.response_format))
+
+
+    @staticmethod
+    def format_translate_result(input: TranscribeInput, segments: List[Segment], info: TranscriptionInfo) -> Any :
+        options = info.transcription_options
+        if input.response_format == FORMAT_VERBOSE:
+            result = {
+                "task": "translate",
+                "language": info.language,
+                "duration": info.duration,
+                "text": " ".join([segment.text for segment in segments]),
+                "segments": []
+            }
+            for segment in segments:
+                result['segments'].append({
                     "id": segment.id,
                     "seek": segment.seek,
                     "start": segment.start,

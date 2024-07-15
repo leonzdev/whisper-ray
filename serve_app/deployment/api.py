@@ -4,7 +4,7 @@ from fastapi.datastructures import FormData
 from ray import serve
 from ray.serve.handle import DeploymentHandle
 from ..common.constants import FORMAT_JSON, SEGMENT
-from ..common.types import TranscribeInput
+from ..common.types import TranscribeInput, TranslateInput
 
 app = FastAPI()
 
@@ -47,6 +47,29 @@ class APIIngress:
         # Call the transcription service
         try:
             result = await self.transcribe_service.transcribe.remote(input_data)
+            return result
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e.cause))
+
+    @app.post("/v1/audio/translations")
+    async def translate(self, 
+        file: UploadFile = File(...), 
+        model: str = Form(...), 
+        prompt: str = Form(None), 
+        response_format: str = Form(FORMAT_JSON),
+        temperature: float = Form(0.0),
+    ):
+        file_content = await file.read()
+        input_data = TranslateInput(
+            file=file_content,
+            model=model,
+            prompt=prompt,
+            response_format=response_format,
+            temperature=temperature
+        )
+
+        try:
+            result = await self.transcribe_service.translate.remote(input_data)
             return result
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e.cause))

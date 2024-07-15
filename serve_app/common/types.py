@@ -10,3 +10,10 @@ class TranscribeInput(BaseModel):
     response_format: str = FORMAT_JSON
     temperature: float = 0.0
     timestamp_granularities: List[str] = []
+
+class TranslateInput(BaseModel):
+    file: bytes
+    model: str = "base"
+    prompt: Optional[str] = None
+    response_format: str = FORMAT_JSON
+    temperature: float = 0.0
