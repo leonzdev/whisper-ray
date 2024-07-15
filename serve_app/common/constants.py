@@ -1,0 +1,6 @@
+WORD = 'word'
+SEGMENT = 'segment'
+FORMAT_JSON = 'json'
+FORMAT_VERBOSE = 'verbose_json'
+DEVICE_CPU = 'cpu'
+DEVICE_GPU = 'cuda'
