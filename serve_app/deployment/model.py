@@ -15,6 +15,7 @@ VALID_RESPONSE_FORMAT = [
 @serve.deployment()
 class WhisperModelService:
     def __init__(self, model_name: str, device: str, cpu_threads: int = 0):
+        self.model_name = model_name
         if DEVICE_CPU == device:
             self.model = WhisperModel(model_name, DEVICE_CPU, cpu_threads=cpu_threads)
         elif DEVICE_GPU == device:
@@ -42,10 +43,11 @@ class WhisperModelService:
             segments.append(s)
         return self.format_transcrbe_result(input, segments, info)
 
-    @staticmethod
-    def validate_transcribe_input(input: TranscribeInput) -> None:
+    def validate_transcribe_input(self, input: TranscribeInput) -> None:
         if input.response_format not in VALID_RESPONSE_FORMAT:
             raise ValueError("Invalid response format {}".format(input.response_format))
+        if input.model != self.model_name:
+            raise ValueError("Invalid model {}. Need to be {}".format(input.model, self.model_name))
 
     @staticmethod
     def format_transcrbe_result(input: TranscribeInput, segments: List[Segment], info: TranscriptionInfo) -> Any :

@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import FastAPI, UploadFile, File, Form, Request
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
 from fastapi.datastructures import FormData
 from ray import serve
 from ray.serve.handle import DeploymentHandle
@@ -45,5 +45,8 @@ class APIIngress:
             timestamp_granularities=timestamp_granularities
         )
         # Call the transcription service
-        result = await self.transcribe_service.transcribe.remote(input_data)
-        return result
+        try:
+            result = await self.transcribe_service.transcribe.remote(input_data)
+            return result
+        except ValueError as e:
+            return HTTPException(status_code=400, detail=str(e))
