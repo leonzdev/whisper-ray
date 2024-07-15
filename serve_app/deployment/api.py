@@ -1,10 +1,11 @@
 from typing import List
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
+from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.datastructures import FormData
 from ray import serve
 from ray.serve.handle import DeploymentHandle
-from ..common.constants import FORMAT_JSON, SEGMENT
-from ..common.types import TranscribeInput
+from ..common.constants import FORMAT_JSON, SEGMENT, FORMAT_VERBOSE
+from ..common.types import TranscribeInput, TranslateInput
 
 app = FastAPI()
 
@@ -31,6 +32,9 @@ class APIIngress:
         response_format: str = Form(FORMAT_JSON),
         temperature: float = Form(0.0),
         # timestamp_granularities: This parameter needs to be parsed from request directly
+        # see: https://github.com/tiangolo/fastapi/issues/842
+        # see: https://github.com/tiangolo/fastapi/issues/3532
+        # see: https://github.com/tiangolo/fastapi/discussions/8741
     ):
         form_data = await request.form()
         file_content = await file.read()
@@ -47,6 +51,33 @@ class APIIngress:
         # Call the transcription service
         try:
             result = await self.transcribe_service.transcribe.remote(input_data)
-            return result
+            if response_format in [FORMAT_JSON, FORMAT_VERBOSE]:
+                return JSONResponse(result)
+            return PlainTextResponse(result)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e.cause))
+
+    @app.post("/v1/audio/translations")
+    async def translate(self, 
+        file: UploadFile = File(...), 
+        model: str = Form(...), 
+        prompt: str = Form(None), 
+        response_format: str = Form(FORMAT_JSON),
+        temperature: float = Form(0.0),
+    ):
+        file_content = await file.read()
+        input_data = TranslateInput(
+            file=file_content,
+            model=model,
+            prompt=prompt,
+            response_format=response_format,
+            temperature=temperature
+        )
+
+        try:
+            result = await self.transcribe_service.translate.remote(input_data)
+            if response_format in [FORMAT_JSON, FORMAT_VERBOSE]:
+                return JSONResponse(result)
+            return PlainTextResponse(result)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e.cause))
