@@ -1,7 +1,7 @@
 import os
 # Deploy the API
 from .deployment.api import APIIngress
-from .deployment.model import WhisperModelService
+from .deployment.whisper_model import WhisperModelService
 
 whisper_ray = APIIngress.bind(WhisperModelService.bind(
     os.getenv("MODEL_NAME"), 
