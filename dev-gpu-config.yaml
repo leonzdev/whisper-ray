@@ -35,7 +35,7 @@ applications:
   runtime_env:
     working_dir: https://github.com/leonzdev/whisper-ray/archive/refs/heads/main.zip
     env_vars:
-      MODEL_NAME: base
+      MODEL_NAME: large-v3
       MODEL_DEVICE: cuda
     pip:
       - faster-whisper==1.0.3
@@ -46,7 +46,7 @@ applications:
 
   deployments:
 
-  - name: TranscribeService
+  - name: WhisperModelService
     ray_actor_options:
       num_gpus: 1
       num_cpus: 2
