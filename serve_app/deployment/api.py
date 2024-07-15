@@ -49,4 +49,4 @@ class APIIngress:
             result = await self.transcribe_service.transcribe.remote(input_data)
             return result
         except ValueError as e:
-            return HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=str(e.cause))
