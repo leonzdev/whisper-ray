@@ -1,9 +1,10 @@
 from typing import List
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
+from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.datastructures import FormData
 from ray import serve
 from ray.serve.handle import DeploymentHandle
-from ..common.constants import FORMAT_JSON, SEGMENT
+from ..common.constants import FORMAT_JSON, SEGMENT, FORMAT_VERBOSE
 from ..common.types import TranscribeInput, TranslateInput
 
 app = FastAPI()
@@ -50,7 +51,9 @@ class APIIngress:
         # Call the transcription service
         try:
             result = await self.transcribe_service.transcribe.remote(input_data)
-            return result
+            if response_format in [FORMAT_JSON, FORMAT_VERBOSE]:
+                return JSONResponse(result)
+            return PlainTextResponse(result)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e.cause))
 
@@ -73,6 +76,8 @@ class APIIngress:
 
         try:
             result = await self.transcribe_service.translate.remote(input_data)
-            return result
+            if response_format in [FORMAT_JSON, FORMAT_VERBOSE]:
+                return JSONResponse(result)
+            return PlainTextResponse(result)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e.cause))
