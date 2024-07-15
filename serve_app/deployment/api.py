@@ -31,6 +31,9 @@ class APIIngress:
         response_format: str = Form(FORMAT_JSON),
         temperature: float = Form(0.0),
         # timestamp_granularities: This parameter needs to be parsed from request directly
+        # see: https://github.com/tiangolo/fastapi/issues/842
+        # see: https://github.com/tiangolo/fastapi/issues/3532
+        # see: https://github.com/tiangolo/fastapi/discussions/8741
     ):
         form_data = await request.form()
         file_content = await file.read()
