@@ -15,12 +15,12 @@ VALID_RESPONSE_FORMAT = [
 
 @serve.deployment()
 class WhisperModelService:
-    def __init__(self, model_name: str, device: str, cpu_threads: int = 0):
+    def __init__(self, model_name: str, device: str, cpu_threads: int = 0, flash_attention: bool = False):
         self.model_name = model_name
         if DEVICE_CPU == device:
             self.model = WhisperModel(model_name, DEVICE_CPU, cpu_threads=cpu_threads)
         elif DEVICE_GPU == device:
-            self.model = WhisperModel(model_name, DEVICE_GPU, cpu_threads=cpu_threads)
+            self.model = WhisperModel(model_name, DEVICE_GPU, cpu_threads=cpu_threads, flash_attention=flash_attention)
         else:
             raise ValueError('Invalid device {}'.format(device)) 
 
