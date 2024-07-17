@@ -1,19 +1,28 @@
-from typing import List
+from enum import Enum
+from typing import List, Union, Any
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.datastructures import FormData
 from ray import serve
 from ray.serve.handle import DeploymentHandle
+from ray.serve.exceptions import BackPressureError
 from ..common.constants import FORMAT_JSON, SEGMENT, FORMAT_VERBOSE
-from ..common.types import TranscribeInput, TranslateInput
+from ..common.types import TranscribeInput, TranslateInput, ModelServiceConfig
 
 app = FastAPI()
+
+class Task(Enum):
+    transcribe = "transcribe"
+    translate = "translate"
 
 @serve.deployment
 @serve.ingress(app)
 class APIIngress:
-    def __init__(self, whisper_model_service: DeploymentHandle) -> None:
-        self.transcribe_service = whisper_model_service
+    def __init__(self, preferred_app_name, preferred_dep_name, backup_app_name, backup_dep_name) -> None:
+        self.model_services_config = [
+            ModelServiceConfig(app_name=preferred_app_name, deployment_name=preferred_dep_name),
+            ModelServiceConfig(app_name=backup_app_name, deployment_name=backup_dep_name)
+        ]
 
     @staticmethod
     def parse_timestamp_granularities(form_data: FormData) -> List[str]:
@@ -21,6 +30,16 @@ class APIIngress:
         if not timestamp_granularities:
             return [SEGMENT]
         return timestamp_granularities
+
+    def get_preferred_model(self) -> DeploymentHandle:
+        return self.get_model_by_index(0)
+    def get_backup_model(self) -> DeploymentHandle:
+        return self.get_model_by_index(1)
+    def get_model_by_index(self, index: int) -> DeploymentHandle:
+        return serve.get_deployment_handle(
+            app_name=self.model_services_config[index].app_name,
+            deployment_name=self.model_services_config[index].deployment_name
+        )
 
     @app.post("/v1/audio/transcriptions")
     async def transcribe(self, 
@@ -49,13 +68,7 @@ class APIIngress:
             timestamp_granularities=timestamp_granularities
         )
         # Call the transcription service
-        try:
-            result = await self.transcribe_service.transcribe.remote(input_data)
-            if response_format in [FORMAT_JSON, FORMAT_VERBOSE]:
-                return JSONResponse(result)
-            return PlainTextResponse(result)
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e.cause))
+        return await self.run_task(input_data, response_format, Task.transcribe)
 
     @app.post("/v1/audio/translations")
     async def translate(self, 
@@ -73,11 +86,31 @@ class APIIngress:
             response_format=response_format,
             temperature=temperature
         )
+        return await self.run_task(input_data, response_format, Task.translate)
 
+    async def run_task(self, input_data: Union[TranslateInput, TranscribeInput], response_format: str, task: Task) -> Any:
+        result = None
         try:
-            result = await self.transcribe_service.translate.remote(input_data)
-            if response_format in [FORMAT_JSON, FORMAT_VERBOSE]:
-                return JSONResponse(result)
-            return PlainTextResponse(result)
+            preferred_model = self.get_preferred_model()
+            # min max_queued_requests is 1 
+            # I *think* there is a bug that max_queued_requests=1 actually requires 2 queued requests to create backpressure
+            # When using the __call__ method (implicitly) to create backpressure it takes 3 requests
+            preferred_model.ping.remote()
+            preferred_model.ping.remote()
+            result = await self.call_model(preferred_model, input_data, task)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e.cause))
+        except BackPressureError as e:
+            result = await self.call_model(self.get_backup_model(), input_data, task)
+        if response_format in [FORMAT_JSON, FORMAT_VERBOSE]:
+            return JSONResponse(result)
+        return PlainTextResponse(result)
+
+    @staticmethod
+    async def call_model(model, input_data, task):
+        if task == Task.transcribe:
+            return await model.transcribe.remote(input_data)
+        elif task == Task.translate:
+            return await model.translate.remote(input_data)
+        else:
+            raise HTTPException(status_code=500, detail="invalid internal task {}".format(task))

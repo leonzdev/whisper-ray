@@ -17,3 +17,7 @@ class TranslateInput(BaseModel):
     prompt: Optional[str] = None
     response_format: str = FORMAT_JSON
     temperature: float = 0.0
+
+class ModelServiceConfig(BaseModel):
+    app_name: str
+    deployment_name: str

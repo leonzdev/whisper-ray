@@ -1,0 +1,90 @@
+# This file was generated using the `serve build` command on Ray v2.31.0.
+
+proxy_location: EveryNode
+
+http_options:
+  host: 0.0.0.0
+  port: 8000
+
+grpc_options:
+  port: 9000
+  grpc_servicer_functions: []
+
+logging_config:
+  encoding: TEXT
+  log_level: INFO
+  logs_dir: null
+  enable_access_log: true
+
+applications:
+- name: whisper-ray-app
+  route_prefix: /api
+  import_path: serve_app.main:whisper_ray
+  runtime_env:
+    working_dir: https://github.com/leonzdev/whisper-ray/archive/refs/tags/0.0.3.zip
+    env_vars:
+      GPU_APP_NAME: gpu-dummy-app
+      GPU_DEP_NAME: WhisperOnGpu
+      CPU_APP_NAME: cpu-dummy-app
+      CPU_DEP_NAME: WhisperOnCpu
+      DEP_NAME: DUMMY_DEP
+    pip:
+      - faster-whisper==1.0.3
+      - typer==0.12.3
+      - typing_extensions==4.12.2
+      - fastapi==0.111.0
+      - fastapi-cli==0.0.4
+  deployments:
+  - name: whisper_api
+    ray_actor_options:
+      num_cpus: 0.1
+      # resources:
+      #   us_cpus: 0.1
+
+- name: cpu-dummy-app
+  route_prefix: /cpu_dummy
+  import_path: serve_app.main:cpu_model
+  runtime_env:
+    working_dir: https://github.com/leonzdev/whisper-ray/archive/refs/tags/0.0.3.zip
+    env_vars:
+      MODEL_NAME: tiny
+      DEP_NAME: WhisperOnCpu
+    pip:
+      - faster-whisper==1.0.3
+      - typer==0.12.3
+      - typing_extensions==4.12.2
+      - fastapi==0.111.0
+      - fastapi-cli==0.0.4
+  deployments:
+  - name: WhisperOnCpu
+    ray_actor_options:
+      num_cpus: 2
+      # resources:
+      #   fallback_cpus: 2
+
+
+- name: gpu-dummy-app
+  route_prefix: /gpu_dummy
+  import_path: serve_app.main:gpu_model
+  runtime_env:
+    working_dir: https://github.com/leonzdev/whisper-ray/archive/refs/tags/0.0.3.zip
+    env_vars:
+      MODEL_NAME: large-v3
+      DEP_NAME: WhisperOnGpu
+    pip:
+      - faster-whisper==1.0.3
+      - typer==0.12.3
+      - typing_extensions==4.12.2
+      - fastapi==0.111.0
+      - fastapi-cli==0.0.4
+  deployments:
+  - name: WhisperOnGpu
+    max_queued_requests: 1
+    num_replicas: auto
+    autoscaling_config:
+      min_replicas: 0
+      max_replicas: 2
+    ray_actor_options:
+      num_gpus: 1
+      # resources:
+      #   fallback_cpus: 2

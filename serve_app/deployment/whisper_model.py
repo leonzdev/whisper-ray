@@ -1,7 +1,8 @@
 import math
 from ray import serve
 from typing import Dict, Any, Union, List
-from pydantic import BaseModel
+from starlette.requests import Request
+from starlette.responses import Response
 from faster_whisper import WhisperModel
 from faster_whisper.transcribe import Segment, TranscriptionInfo
 from ..common.constants import WORD, SEGMENT, DEVICE_CPU, DEVICE_GPU, FORMAT_JSON, FORMAT_VERBOSE, FORMAT_SRT, FORMAT_VTT
@@ -13,7 +14,7 @@ VALID_RESPONSE_FORMAT = [
     FORMAT_JSON, FORMAT_VERBOSE, FORMAT_SRT, FORMAT_VTT
 ]
 
-@serve.deployment()
+@serve.deployment
 class WhisperModelService:
     def __init__(self, model_name: str, device: str, cpu_threads: int = 0, flash_attention: bool = False):
         self.model_name = model_name
@@ -47,8 +48,9 @@ class WhisperModelService:
     def validate_transcribe_input(self, input: TranscribeInput) -> None:
         if input.response_format not in VALID_RESPONSE_FORMAT:
             raise ValueError("Invalid response format {}".format(input.response_format))
-        if input.model != self.model_name:
-            raise ValueError("Invalid model {}. Need to be {}".format(input.model, self.model_name))
+        # TODO: ignore model name validation for now cause I don't want to run the large model on CPU
+        # if input.model != self.model_name:
+        #     raise ValueError("Invalid model {}. Need to be {}".format(input.model, self.model_name))
 
     async def translate(self, input: TranslateInput) -> Dict[str, Any]:
         # TODO: use the same input validation as transcribe for now
@@ -65,6 +67,12 @@ class WhisperModelService:
             await asyncio.sleep(0)
             segments.append(s)
         return self.format_translate_result(input, segments, info)
+
+    async def ping(self):
+        return None
+
+    async def __call__(self, request: Request) -> str:
+        raise Response(status_code=404)
 
     @staticmethod
     def format_transcribe_result(input: TranscribeInput, segments: List[Segment], info: TranscriptionInfo) -> Any :
