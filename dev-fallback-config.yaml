@@ -21,7 +21,7 @@ applications:
   route_prefix: /api
   import_path: serve_app.main:whisper_ray
   runtime_env:
-    working_dir: https://github.com/leonzdev/whisper-ray/archive/refs/tags/0.0.3.zip
+    working_dir: https://github.com/leonzdev/whisper-ray/archive/refs/heads/jzu/model_fallback.zip
     env_vars:
       GPU_APP_NAME: gpu-dummy-app
       GPU_DEP_NAME: WhisperOnGpu
@@ -38,17 +38,19 @@ applications:
   - name: whisper_api
     ray_actor_options:
       num_cpus: 0.1
-      # resources:
-      #   us_cpus: 0.1
+      resources:
+        # cloud_cpus: 0.1
+        us_cpus: 0.1
 
 - name: cpu-dummy-app
   route_prefix: /cpu_dummy
   import_path: serve_app.main:cpu_model
   runtime_env:
-    working_dir: https://github.com/leonzdev/whisper-ray/archive/refs/tags/0.0.3.zip
+    working_dir: https://github.com/leonzdev/whisper-ray/archive/refs/heads/jzu/model_fallback.zip
     env_vars:
-      MODEL_NAME: tiny
+      MODEL_NAME: large-v3
       DEP_NAME: WhisperOnCpu
+      MODEL_CPU_THREADS: "7"
     pip:
       - faster-whisper==1.0.3
       - typer==0.12.3
@@ -58,16 +60,17 @@ applications:
   deployments:
   - name: WhisperOnCpu
     ray_actor_options:
-      num_cpus: 2
-      # resources:
-      #   fallback_cpus: 2
+      num_cpus: 7.5
+      resources:
+        # cloud_cpus: 1.5
+        us_cpus: 7.5
 
 
 - name: gpu-dummy-app
   route_prefix: /gpu_dummy
   import_path: serve_app.main:gpu_model
   runtime_env:
-    working_dir: https://github.com/leonzdev/whisper-ray/archive/refs/tags/0.0.3.zip
+    working_dir: https://github.com/leonzdev/whisper-ray/archive/refs/heads/jzu/model_fallback.zip
     env_vars:
       MODEL_NAME: large-v3
       DEP_NAME: WhisperOnGpu
@@ -82,9 +85,9 @@ applications:
     max_queued_requests: 1
     num_replicas: auto
     autoscaling_config:
-      min_replicas: 0
+      min_replicas: 1
       max_replicas: 2
     ray_actor_options:
-      num_gpus: 1
+      num_gpus: 0.5
       # resources:
       #   fallback_cpus: 2
