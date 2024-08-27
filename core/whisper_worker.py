@@ -1,21 +1,15 @@
 import math
-from ray import serve
 from typing import Dict, Any, Union, List
-from pydantic import BaseModel
 from faster_whisper import WhisperModel
 from faster_whisper.transcribe import Segment, TranscriptionInfo
-from ..common.constants import WORD, SEGMENT, DEVICE_CPU, DEVICE_GPU, FORMAT_JSON, FORMAT_VERBOSE, FORMAT_SRT, FORMAT_VTT
-from ..common.types import TranscribeInput, TranslateInput
+from common.constants import WORD, SEGMENT, DEVICE_CPU, DEVICE_GPU, FORMAT_JSON, FORMAT_VERBOSE, FORMAT_SRT, FORMAT_VTT, VALID_RESPONSE_FORMAT
+from common.types import AbstractWhisperWorker, TranscribeInput, TranslateInput
 import asyncio
 import io
 
-VALID_RESPONSE_FORMAT = [
-    FORMAT_JSON, FORMAT_VERBOSE, FORMAT_SRT, FORMAT_VTT
-]
-
-@serve.deployment()
-class WhisperModelService:
+class WhisperWorker(AbstractWhisperWorker):
     def __init__(self, model_name: str, device: str, cpu_threads: int = 0, flash_attention: bool = False):
+        print("loading model: " + str(model_name))
         self.model_name = model_name
         if DEVICE_CPU == device:
             self.model = WhisperModel(model_name, DEVICE_CPU, cpu_threads=cpu_threads)

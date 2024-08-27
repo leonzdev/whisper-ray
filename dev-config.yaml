@@ -33,9 +33,9 @@ applications:
   import_path: serve_app.main:whisper_ray
 
   runtime_env:
-    working_dir: https://github.com/leonzdev/whisper-ray/archive/refs/heads/main.zip
+    # working_dir: https://github.com/leonzdev/whisper-ray/archive/refs/heads/main.zip
     env_vars:
-      MODEL_NAME: base
+      MODEL_NAME: tiny
       MODEL_DEVICE: cpu
       MODEL_CPU_THREADS: "4"
     pip:
@@ -47,6 +47,6 @@ applications:
 
   deployments:
 
-  - name: WhisperModelService
+  - name: WhisperWorker
 
   - name: APIIngress
